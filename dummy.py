@@ -15,7 +15,7 @@ llm = GooglePalm(google_api_key=os.environ["GOOGLE_API_KEY"], temperature=0.1)
 instructor_embeddings = HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-large")
 vectordb_file_path = "faiss_index"
 
-def generate_answer(incoming_que):
+def get_qa_chain():
   vectordb = FAISS.load_local(vectordb_file_path, instructor_embeddings)
   retriever = vectordb.as_retriever(score_threshold=0.7)
   prompt_template = """Given the following context and a question, generate an answer based on this context only.
@@ -24,34 +24,33 @@ def generate_answer(incoming_que):
   CONTEXT: {context}
   QUESTION: {question}"""
   PROMPT = PromptTemplate(
-    template=prompt_template, input_variables=["context", "question"]
+      template=prompt_template, input_variables=["context", "question"]
   )
 
+  # Generate the answer using LangChain
   answer = RetrievalQA.from_chain_type(llm=llm,
-                                        chain_type="stuff",
-                                        retriever=retriever,
-                                        input_key="query",
-                                        return_source_documents=True,
-                                        chain_type_kwargs={"prompt": PROMPT})
+                                       chain_type="stuff",
+                                       retriever=retriever,
+                                       input_key="query",
+                                       return_source_documents=True,
+                                       chain_type_kwargs={"prompt": PROMPT})
+  
 
-  # Extract the answer from the RetrievalQA object
   return answer
 
-
-
-# Define a route to handle incoming requests
 @app.route('/chatgpt', methods=['POST'])
 def chatgpt():
-    incoming_que = request.values.get('Body', '').lower()
-    print("Question: ", incoming_que)
-    # Generate the answer using LangChain
-    answer = generate_answer(incoming_que)
+    chain = get_qa_chain()
+    question = request.values.get('Body', '').lower()
+    print("Question: ", question)
+    response = chain(question)
+    answer = response['result']
     print("BOT Answer: ", answer)
     bot_resp = MessagingResponse()
     msg = bot_resp.message()
     msg.body(answer)
-    return bot_resp
+    return str(bot_resp)
 
-# Run the Flask app
+
 if __name__ == "__main__":
     app.run(host='0.0.0.0', debug=False, port=5000)
