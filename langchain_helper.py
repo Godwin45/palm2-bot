@@ -18,7 +18,7 @@ def create_vector_db():
     vectordb = FAISS.from_documents(documents=data,
                                     embedding=instructor_embeddings)
     vectordb.save_local(vectordb_file_path)
-def get_qa_chain():
+def generate_answer():
     vectordb = FAISS.load_local(vectordb_file_path, instructor_embeddings)
 
     retriever = vectordb.as_retriever(score_threshold=0.7)
